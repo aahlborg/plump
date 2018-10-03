@@ -9,7 +9,7 @@ class TestPlumpInit(unittest.TestCase):
         game = plump.PlumpGame()
 
         self.assertEqual(len(game.players), 0)
-        self.assertEqual(len(game.deck.cards), 52)
+        self.assertEqual(len(game.deck.cards), 0)
 
     def test_addPlayer(self):
         game = plump.PlumpGame()
@@ -35,11 +35,17 @@ class TestPlumpInit(unittest.TestCase):
         self.assertTrue(game.addPlayer("Alice"))
         self.assertTrue(game.addPlayer("Bob"))
         self.assertTrue(game.setMaxCards(n))
-        self.assertTrue(game.deal(), n)
+        self.assertTrue(game.deal(1), n)
 
         self.assertEqual(len(game.deck.cards), 52 - 2 * n)
         self.assertEqual(len(game.players[0].cards), n)
         self.assertEqual(len(game.players[1].cards), n)
+
+        self.assertFalse(game.addPlayer("Eve"), "Cannot add player after game has started")
+        self.assertEqual(len(game.players), 2)
+
+        self.assertFalse(game.setMaxCards(n + 1), "Cannot change max cards after game has started")
+        self.assertEqual(game.maxCards, n)
 
 
 class TestPlumpBid(unittest.TestCase):
@@ -87,9 +93,11 @@ class TestPlumpPlay(unittest.TestCase):
         self.assertTrue(self.game.addPlayer("Bob"))
         self.assertTrue(self.game.setMaxCards(n))
         self.assertTrue(self.game.deal(), n)
+        self.assertTrue(self.game.action(0, "BID", 3))
+        self.assertTrue(self.game.action(1, "BID", 1))
 
     def test_playCard(self):
-        pass
+        self.assertTrue(self.game.action(0, "PLAY", 0))
 
 
 def plumpTestSuite():

@@ -15,31 +15,40 @@ class Card:
             self.suite = self.SUITES.index(suite)
         if rank:
             self.rank = self.RANKS.index(rank)
-    
+
     def __str__(self):
         return self.RANKS[self.rank] + " of " + self.SUITES[self.suite]
 
 
 class CardDeck:
-    def __init__(self):
+    def __init__(self, fill=False):
         self.cards = list()
+        if fill:
+            self.fill()
 
-        for suite in Card.SUITES:
-            for rank in Card.RANKS:
-                self.cards.append(Card(suite, rank))
-        random.shuffle(self.cards)
-    
     def __str__(self):
         s = "Deck holds {} cards: [".format(len(self.cards))
         for card in self.cards:
             s += str(card) + ", "
         return s + "]"
-    
-    def shuffle(self):
+
+    def fill(self):
+        # Reset to a full playing card deck
+        for suite in Card.SUITES:
+            for rank in Card.RANKS:
+                self.cards.append(Card(suite, rank))
+
+    def shuffle(self, seed=None):
+        if seed:
+            # For debug and testing purpose
+            random.seed(seed)
         random.shuffle(self.cards)
 
-    def pop(self):
-        return self.cards.pop(0)
+    def pop(self, index=0):
+        return self.cards.pop(index)
+
+    def contains(self, card):
+        pass
 
 
 class Player:
@@ -54,9 +63,12 @@ class Player:
         for card in self.cards:
             s += str(card) + ", "
         return s + "]"
-    
+
     def deal(self, card):
         self.cards.append(card)
+
+    def clearCards(self):
+        self.cards = list()
 
     def doBid(self, bid):
         self.bids.append(bid)
@@ -91,6 +103,7 @@ class PlumpGame:
     ACTIONS = ["BID", "PLAY"]
 
     def __init__(self):
+        self.started = False
         self.players = list()
         self.deck = CardDeck()
         self.cardsLeft = 0
@@ -100,8 +113,11 @@ class PlumpGame:
         self.currentAction = self.ACTIONS[0]
         self.currentPlayer = 0
         self.firstPlayer = 0
-    
+
     def addPlayer(self, name):
+        if self.started:
+            print("Game has already started")
+            return False
         for player in self.players:
             if player.name == name:
                 print("Player {} is already participating in the game".format(name))
@@ -110,8 +126,11 @@ class PlumpGame:
         # Set max possible number of rounds
         self.setMaxCards(100)
         return True
-    
+
     def setMaxCards(self, n):
+        if self.started:
+            print("Game has already started")
+            return False
         # Cap at MAX_CARDS / nPlayers
         cards = min(n, self.MAX_CARDS // len(self.players))
         # Min 1 round
@@ -129,11 +148,6 @@ class PlumpGame:
         s += "Bids: {}\n".format(self.currentBids())
         return s
 
-    def start(self):
-        self.currentRound = 0
-        self.currentAction = self.ACTIONS[0]
-        self.currentPlayer = self.firstPlayer
-
     def status(self):
         if self.cardsLeft == 0:
             return (False, self.currentRound, None, None)
@@ -150,18 +164,31 @@ class PlumpGame:
         return bids
 
     def getPlayerOrder(self):
-        # PLayer indices sorted according to position this round
+        # Player indices sorted according to position this round
         players = list()
         for j in range(len(self.players)):
             players.append((self.firstPlayer + j) % len(self.players))
         return players
 
-    def deal(self):
-        nCards = 0
+    def getNoCardsCurrentRound(self):
         if self.currentRound < self.maxCards:
-            nCards = self.maxCards - self.currentRound
+            return self.maxCards - self.currentRound
         elif self.currentRound < (self.maxCards + len(self.players)):
-            nCards = 1
+            return 1
+        else:
+            print("Round {} invalid".format(self.currentRound))
+            return -1
+
+    def deal(self, seed=None):
+        # Reset cards
+        self.deck = CardDeck(True)
+        self.deck.shuffle(seed)
+        for player in self.players:
+            player.clearCards()
+
+        if not self.started:
+            self.started = True
+        nCards = self.getNoCardsCurrentRound()
         for _ in range(nCards):
             for j in self.getPlayerOrder():
                 p = self.players[j]
@@ -179,7 +206,7 @@ class PlumpGame:
         if action != self.currentAction:
             reason = "Action {} not allowed".format(action)
             validAction = False
-        
+
         if action == "BID":
             player = self.players[self.currentPlayer]
             bid = data
@@ -194,7 +221,7 @@ class PlumpGame:
                     validAction = False
             if validAction:
                 player.doBid(bid)
-        
+
         if not validAction:
             print("{} failed: {}".format(action, reason))
             return False
@@ -227,12 +254,8 @@ def main():
     if args.cards:
         game.setMaxCards(args.cards)
 
-    print("========\nStart")
-    game.start()
-    print(game)
-
     print("========\nDeal")
-    game.deal()
+    game.deal(1)
     print(game)
 
 
